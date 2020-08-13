@@ -25,8 +25,6 @@ __react-fetching-library__ -  simple and powerful fetching library for React. Us
 
 ✅ Simple cache provider - easily to extend
 
-✅ Bult-in contexts to easily pass data down to child components
-
 ✅ Handle race conditions
 
 ✅ Allows to abort pending requests
@@ -104,7 +102,7 @@ const client = createClient(options);
 ```js
 import { Action } from 'react-fetching-library';
 
-const action:Action= { 
+const action: Action = { 
   method: 'GET',
   endpoint: '/users',
 };
@@ -133,7 +131,7 @@ You can intercept requests before they are handled by __Fetch__ function. Interc
 For example, when you want to add __HOST__ address to all API requests you can create such interceptor:
 
 ```js
-export const requestHostInterceptor: host => client => async action => {
+export const requestHostInterceptor = host => client => async action => {
   return {
     ...action,
     endpoint: `${host}${action.endpoint}`,
@@ -232,9 +230,9 @@ You can create your own cache provider. It should implement this type:
 
 ```js
 type Cache<T> = {
-  add: (action: Action<any>, value: T) => void;
-  remove: (action: Action<any>) => void;
-  get: (action: Action<any>) => QueryResponse & { timestamp: number } | undefined;
+  add: (action: Action, value: T) => void;
+  remove: (action: Action) => void;
+  get: (action: Action) => QueryResponse & { timestamp: number } | undefined;
   getItems: () => { [key: string]: QueryResponse };
   setItems: (items:{ [key: string]: QueryResponse }) => void;
 };
@@ -310,6 +308,7 @@ const fetchUsersActions = {
 | signal | - | [AbortSignal](https://developer.mozilla.org/en-US/docs/Web/API/AbortSignal) / null         | no 
 | window | - | any         | no 
 | config | additional config of action | see below         | no 
+| responseType | type of expected response | arrayBuffer &#124; blob &#124; json &#124; text &#124; formData | no
 
 
 ### Config object:
@@ -318,6 +317,63 @@ const fetchUsersActions = {
 | ------------------------- | ------------------ | ------------- | ------------- |
 | emitErrorForStatuses         | list of HTTP status codes which throw error to allow to catch it in error boundary       | number[] | no               |
 
+When you're using TypeScript and need to add some new params to config object or directly to `Action` then you have 3 possibilities to do that:
+
+1. Add second param to `Action` config interface directly in action definition (`skipAuth` in example):
+
+```js
+
+type Response = {
+  name: string;
+}
+
+const action:Action<Response, { skipAuth: boolean }> = {
+    method: 'GET',
+    endpoint: '/',
+    config: {
+      skipAuth: true,
+    }
+}
+```
+
+Obviously you can define that type before and use it in whole project:
+
+```js
+import { Action as BaseAction } from 'react-fetching-library';
+
+type Action<R> = BaseAction<R, { skipAuth: boolean }>
+```
+
+2. Extend `ActionConfig` interface in `rfc-extended.d.ts` file with new params:
+
+```js
+
+import * as RFC from 'react-fetching-library';
+
+declare module 'react-fetching-library' {
+  export interface ActionConfig {
+    // Only new params
+    skipAuth: boolean;
+    params: any;
+  };
+}
+```
+
+3. Extend `Action` interface in `rfc-extended.d.ts` with new params:
+   
+```js
+
+import 'react-fetching-library';
+
+declare module 'react-fetching-library' {
+  export interface Action<R = any, Ext = any> {
+    // Only new params
+    skipAuth: boolean;
+  }
+}
+
+
+```
 ---
 
 # QueryResponse
@@ -447,6 +503,63 @@ export const AddUserFormContainer = () => {
 };
 ```
 
+## useBulkMutation
+
+This hook is used when you need to mutate multiple data, ie for POST/PATCH/PUT actions for mass delete using a delete endpoint of one element. 
+First param of this hook is function which returns [`Action`][] object. An array of params of this function have to be provided in returned `mutate` function. Hook returns loading flag, responses array, each containing the payload, error flag and errorObject. To reset state of hook use `reset` method without any params. To abort pending request use `abort` function.
+
+```js
+import { useBulkMutation } from 'react-fetching-library';
+
+const deleteUserAction = (user) => ({
+  method: 'DELETE',
+  endpoint: '/users?id=' + user.id
+});
+
+export const DeleteUserFormContainer = () => {
+  const { loading, responses, mutate, reset, abort } = useBulkMutation(deleteUserAction);
+
+  const handleSubmit = async (selectedUsers) => {
+    const { responses: responses } = await mutate(selectedUsers);
+ 
+    const errors = responses.filter(response => response).map(response => response.error);
+
+
+    if (errors.length > 0) {
+      //show ie. notification
+    }
+
+    //success
+  }
+
+  return <DeleteUserFormContainer loading={loading} onSubmit={handleSubmit} />;
+};
+```
+
+## useParameterizedQuery
+
+This hook is used when you need to lazy load data with some parameters (parameters are not known during first render) passed to action creator.
+First param of this hook is function which returns [`Action`][] object. All params of this function have to be provided in returned `query` function. Hook returns loading flag, response payload, error flag and errorObject as well. To reset state of hook use `reset` method without any params. To abort pending request use `abort` function.
+
+```js
+import { useParameterizedQuery } from 'react-fetching-library';
+
+const fetchUserAction = (userId) => ({
+  method: 'GET',
+  endpoint: `/users/${userId}`,
+});
+
+export const UserDetailsContainer = ({ userId }) => {
+  const { loading, payload, query, error, reset, abort } = useParameterizedQuery(fetchUserAction);
+
+  useEffect(() => { 
+    query(userId);
+  }, [userId]);
+
+  return <UserDetails loading={loading} error={error} user={payload} />;
+};
+```
+
 ## useCachedResponse 
 
 This hook is used to get response object from cache.
@@ -480,80 +593,6 @@ export const UsersListContainer = () => {
 };
 ```
 
-## useQueryContext
-
-This hook is used to get all information from `useQuery` hook from child component. First you need to add context provider in parent component:
-
-```js
-import { useQuery, QueryContext } from 'react-fetching-library';
-
-const fetchUsersList = {
-  method: 'GET',
-  endpoint: '/users',
-};
-
-export const UsersListContainer = () => {
-  const query = useQuery(fetchUsersList);
-
-  return (
-    <QueryContext.Provider value={query}>
-      <UsersList />
-    </QueryContext.Provider>
-  );
-};
-```
-
-And use `useQueryContext` in child component:
-
-```js
-import {  useQueryContext } from 'react-fetching-library';
-
-export const UsersList = () => {
-  const { loading, payload, error, query } = useQueryContext();
-  .
-  .
-  .
-};
-
-```
-
-## useMutationContext
-
-This hook is used to get all information from `useMutation` hook from child component. First you need to add context provider in parent component:
-
-```js
-import { useMutation, MutationContext } from 'react-fetching-library';
-
-const addUser = (values) => ({
-  method: 'POST',
-  endpoint: '/users',
-  body: values,
-});
-
-export const AddUserContainer = () => {
-  const mutation = useMutation(addUser);
-
-  return (
-    <MutationContext.Provider value={mutation}>
-      <AddUserForm />
-    </MutationContext.Provider>
-  );
-};
-```
-
-And use `useMutationContext` in child component:
-
-```js
-import {  useMutationContext } from 'react-fetching-library';
-
-export const AddUserForm = () => {
-  const { loading, payload, error, mutate } = useMutationContext();
-  .
-  .
-  .
-};
-
-```
 ---
 
 # FACCs (Function as Child Components)
@@ -1038,6 +1077,7 @@ For an example of SSR with next.js framework view this CodeSandbox:
 ## With Formik
 
 For an example of a contact form submission with Formik and the useMutation hook:
+
 [![Edit Basic Example](https://codesandbox.io/static/img/play-codesandbox.svg)](https://codesandbox.io/s/github/marcin-piela/react-fetching-library/tree/master/examples/crud-form)
 
 ## With AXIOS
@@ -1080,4 +1120,4 @@ For now React Suspense is not production ready to use it for fetch data as descr
 [github-star]: https://github.com/marcin-piela/react-fetching-library/stargazers
 [twitter]: https://twitter.com/intent/tweet?text=Check%20out%20react-fetching-library%20https%3A%2F%2Fgithub.com%2Fmarcin-piela%2Freact-fetching-library%20%F0%9F%91%8D
 [twitter-badge]: https://img.shields.io/twitter/url/https/github.com/marcin-piela/react-fetching-library.svg?style=social
-[gzip-badge]:https://badgen.net/bundlephobia/minzip/react-fetching-library
+[gzip-badge]:https://badgen.net/bundlephobia/minzip/react-fetching-library@1.6.1

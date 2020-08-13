@@ -1,8 +1,9 @@
+import { act, render } from '@testing-library/react';
 import React from 'react';
-import { render, act } from '@testing-library/react';
 
+import { createCache } from '../../../../src/cache/cache';
+import { Action, QueryResponse, SuspenseCacheItem } from '../../../../src/client/client.types';
 import { Query } from '../../../../src/components/query/Query';
-import { Action, QueryResponse } from '../../../../src/client/client.types';
 import { ClientContextProvider } from '../../../../src/context/clientContext/clientContextProvider';
 
 describe('Query test', () => {
@@ -25,6 +26,7 @@ describe('Query test', () => {
 
   const client = {
     query: fetchFunction,
+    suspenseCache: createCache<SuspenseCacheItem>(() => true, () => true),
   };
 
   const wrapper = ({ children }: any) => <ClientContextProvider client={client}>{children}</ClientContextProvider>;
@@ -35,7 +37,7 @@ describe('Query test', () => {
     const children = jest.fn(({ loading }) => (loading ? 'loading' : 'loaded'));
 
     const { unmount } = render(<Query action={action}>{children}</Query>, {
-      wrapper: wrapper,
+      wrapper,
     });
 
     expect(children).toHaveBeenCalledWith(

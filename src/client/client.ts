@@ -1,44 +1,48 @@
+import { createCache } from '../cache/cache';
 import {
   Action,
+  Client,
   ClientOptions,
   QueryResponse,
   RequestInterceptor,
   ResponseInterceptor,
   ResponseType,
+  SuspenseCacheItem,
 } from './client.types';
 import { QueryError } from './errors/QueryError';
 
 export type HandleRequestInterceptors<R> = (
-  action: Action<R>,
+  action: Action<any, R>,
   interceptors: Array<RequestInterceptor<R>>,
-) => Promise<Action<R>>;
+) => Promise<Action<any, R>>;
 
 export type HandleResponseInterceptors<R> = (
-  action: Action<R>,
+  action: Action<any, R>,
   response: QueryResponse<any>,
   interceptors: Array<ResponseInterceptor<R, any>>,
 ) => Promise<QueryResponse<any>>;
 
-export const createClient = <R = any>(clientOptions: ClientOptions<R>) => {
+export const createClient = <R = any>(clientOptions: ClientOptions<R> = {}) => {
   const cache = clientOptions.cacheProvider;
+  const suspenseCache = createCache<SuspenseCacheItem>(() => true, () => true);
 
   const handleRequestInterceptors: HandleRequestInterceptors<R> = async (action, interceptors) => {
     const [interceptor, ...next] = interceptors;
 
-    return interceptor ? await handleRequestInterceptors(await interceptor(client)(action), next) : action;
+    return interceptor ? await handleRequestInterceptors(await interceptor(client as Client)(action), next) : action;
   };
 
   const handleResponseInterceptors: HandleResponseInterceptors<R> = async (action, response, interceptors) => {
     const [interceptor, ...next] = interceptors;
 
     return interceptor
-      ? await handleResponseInterceptors(action, await interceptor(client)(action, response), next)
+      ? await handleResponseInterceptors(action, await interceptor(client as Client)(action, response), next)
       : response;
   };
 
   const client = {
     cache,
-    query: async <T>(actionInit: Action<R>, skipCache = false): Promise<QueryResponse<T>> => {
+    query: async <T>(actionInit: Action<T, R>, skipCache = false): Promise<QueryResponse<T>> => {
       try {
         const action = await handleRequestInterceptors(actionInit, clientOptions.requestInterceptors || []);
         const { endpoint, body, responseType, ...options } = action;
@@ -51,24 +55,20 @@ export const createClient = <R = any>(clientOptions: ClientOptions<R>) => {
           }
         }
 
-        const headers = { ...{ 'Content-Type': 'application/json; charset=utf-8' }, ...options.headers };
-        const shouldStringify = headers['Content-Type'].indexOf('json') !== -1;
+        let headers = options.headers;
+
+        if (!(body && (body instanceof FormData || body instanceof Blob || body instanceof ArrayBuffer))) {
+          headers = { ...{ 'Content-Type': 'application/json; charset=utf-8' }, ...options.headers };
+        }
+
+        const shouldStringify = headers && headers['Content-Type'] && headers['Content-Type'].indexOf('json') !== -1;
         const fetchFunction = clientOptions.fetch || fetch;
 
         const response = await fetchFunction(endpoint, {
+          ...options,
           body: body ? (shouldStringify ? JSON.stringify(body) : body) : undefined,
-          cache: options.cache,
-          credentials: options.credentials,
           headers,
-          integrity: options.integrity,
-          keepalive: options.keepalive,
-          method: options.method,
-          mode: options.mode,
-          redirect: options.redirect,
-          referrer: options.referrer,
-          referrerPolicy: options.referrerPolicy,
-          signal: options.signal,
-          window: options.window,
+          responseType,
         });
 
         const queryResponse = await handleResponseInterceptors(
@@ -103,6 +103,7 @@ export const createClient = <R = any>(clientOptions: ClientOptions<R>) => {
         };
       }
     },
+    suspenseCache,
   };
 
   return client;

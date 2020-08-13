@@ -35,8 +35,6 @@ Simple and powerful fetching library for React. Use hooks to fetch data!
 
 ✅ Simple cache provider - easily to extend
 
-✅ Bult-in contexts to easily pass data down to child components
-
 ✅ Handle race conditions
 
 ✅ Allows to abort pending requests
@@ -49,7 +47,7 @@ Simple and powerful fetching library for React. Use hooks to fetch data!
 
 Use hooks or FACC's (Function as Child Component) to fetch data in an easy way. No dependencies! Just React under the hood.
 
-Request and response interceptors allows you to easily customize connection with API (add authorization, refresh token, cache, etc). It uses Fetch API so it can be use in SSR apps (ie. with isomorphic-fetch)
+Request and response interceptors allows you to easily customize connection with API (add authorization, refresh token, cache, etc). It uses Fetch API so it can be used in SSR apps (i.e. with isomorphic-fetch).
 
 Library allows you to use it with connection of React Suspense ([read more about React Suspense](https://blog.logrocket.com/async-rendering-in-react-with-suspense-5d0eaac886c8)) to easily maintain loading state in application.
 
@@ -88,7 +86,7 @@ export const UsersListContainer = () => {
 
 ## Contributing
 
-Fell free to open PRs and issues to make this library better !
+Feel free to open PRs and issues to make this library better !
 
 When making a PR, make sure all tests pass. If you add a new feature, please consider updating the documentation or codesandbox examples. Thank you!
 
@@ -120,4 +118,4 @@ react-fetching-library is licensed under the [MIT license](http://opensource.org
 [github-star]: https://github.com/marcin-piela/react-fetching-library/stargazers
 [twitter]: https://twitter.com/intent/tweet?text=Check%20out%20react-fetching-library%20https%3A%2F%2Fgithub.com%2Fmarcin-piela%2Freact-fetching-library%20%F0%9F%91%8D
 [twitter-badge]: https://img.shields.io/twitter/url/https/github.com/marcin-piela/react-fetching-library.svg?style=social
-[gzip-badge]:https://badgen.net/bundlephobia/minzip/react-fetching-library
+[gzip-badge]:https://badgen.net/bundlephobia/minzip/react-fetching-library@1.6.1

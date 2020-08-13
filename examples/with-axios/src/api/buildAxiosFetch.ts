@@ -1,9 +1,15 @@
 import axios, { AxiosInstance, Method } from 'axios';
+import { Action } from 'react-fetching-library';
 
-export const buildAxiosFetch = (axiosInstance: AxiosInstance) => async (init: RequestInfo, options?: RequestInit) => {
+export const buildAxiosFetch = (axiosInstance: AxiosInstance) => async (
+  init: RequestInfo,
+  options?: Partial<Action> & RequestInit,
+) => {
   const cancelSource = axios.CancelToken.source();
 
   const config = {
+    ...options,
+    responseType: options && options.responseType ? (options.responseType.toLocaleLowerCase() as any) : undefined,
     url: init as string,
     method: (options && options.method ? options.method : 'GET') as Method,
     data: options && options.body ? options.body : undefined,
@@ -26,14 +32,13 @@ export const buildAxiosFetch = (axiosInstance: AxiosInstance) => async (init: Re
   }
 
   const result = await axiosInstance.request(config);
-  const responseBody = typeof result.data === `object` ? JSON.stringify(result.data) : result.data;
   const headers = new Headers();
 
   Object.entries(result.headers).forEach(function([key, value]) {
     headers.append(key, value as string);
   });
 
-  return new Response(responseBody, {
+  return new Response(result.data, {
     status: result.status,
     statusText: result.statusText,
     headers,

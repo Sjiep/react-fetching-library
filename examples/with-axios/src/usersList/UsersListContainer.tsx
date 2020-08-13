@@ -4,10 +4,14 @@ import { useQuery } from 'react-fetching-library';
 import { fetchUsersList } from '../api/actions/fetchUsersList';
 
 import { UsersList } from './UsersList';
-import { User } from './UsersList.types';
 
 export const UsersListContainer = () => {
-  const { loading, payload, error, query, errorObject, abort } = useQuery<User[]>(fetchUsersList);
+  const { loading, payload, error, query, abort } = useQuery({
+    ...fetchUsersList,
+    onDownloadProgress: progressEvent => {
+      console.log('download', progressEvent);
+    },
+  });
 
   return <UsersList loading={loading} error={error} users={payload} onReload={query} onAbort={abort} />;
 };
